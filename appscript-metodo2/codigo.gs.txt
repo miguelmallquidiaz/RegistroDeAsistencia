@@ -1,0 +1,127 @@
+function doGet() {
+  let template = HtmlService.createTemplateFromFile('index');
+  let html = template.evaluate().setTitle('Registro de Asistencia');
+  html.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  html.addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  return html;
+}
+
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+function obtenerDatos(qr_persona) {
+  // Buscar en la hoja de Alumnos
+  var hojaAlumnos = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Alumnos");
+  var datosAlumnos = hojaAlumnos.getDataRange().getValues();
+  for (var i = 1; i < datosAlumnos.length; i++) {
+    if (datosAlumnos[i][4] === qr_persona) { // CódigoQR está en la columna 4 (índice 4)
+      return {
+        alumnoID: datosAlumnos[i][0], // AlumnoID está en la columna 0
+        nombre_completo: datosAlumnos[i][1], // AlumnoNombre está en la columna 1
+        grupoID: datosAlumnos[i][2], // GrupoID está en la columna 2
+        estado: datosAlumnos[i][5] // Estado está en la columna 5
+      };
+    }
+  }
+  return null; // Si no se encuentra en la hoja de Alumnos
+}
+
+function convertirHoraAMinutos(hora) {
+  var partes = hora.split(":");
+  var horas = parseInt(partes[0], 10);
+  var minutos = parseInt(partes[1], 10);
+  return horas * 60 + minutos;
+}
+
+function registrarAsistencia(qr_persona) {
+  var hojaAsistencia = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Asistencia");
+  
+  if (!hojaAsistencia) {
+    console.error("La hoja 'Asistencia' no existe.");
+    return "Error: La hoja 'Asistencia' no existe.";
+  }
+
+  var datos = hojaAsistencia.getDataRange().getValues();
+  
+  var fecha = new Date();
+  var fechaStr = Utilities.formatDate(fecha, "America/Lima", "dd/MM/yyyy"); // Formato de fecha corregido
+  var horaStr = Utilities.formatDate(fecha, "America/Lima", "HH:mm:ss");
+  var horaActual = Utilities.formatDate(fecha, "America/Lima", "HH:mm:ss");
+
+  // Obtener datos del alumno
+  var alumno = obtenerDatos(qr_persona);
+  if (!alumno) return "Alumno no encontrado.";
+
+  // Validar si el alumno está activo
+  if (alumno.estado !== "ACTIVO") {
+    return "El alumno no está activo.";
+  }
+
+  // Validar si la persona ya ha sido registrada hoy
+  for (var i = 1; i < datos.length; i++) {
+    var fechaRegistro = datos[i][4]; // AsistenciaFecha está en la columna 4
+    var personaRegistro = datos[i][1]; // AlumnoID está en la columna 1
+
+    var fechaRegistroStr = Utilities.formatDate(new Date(fechaRegistro), "America/Lima", "dd/MM/yyyy");
+
+    if (
+      fechaRegistroStr === fechaStr &&
+      personaRegistro.toString().trim() === alumno.alumnoID.trim()
+    ) {
+      console.log("Persona ya registrada hoy.");
+      return "La persona ya ha sido registrada hoy.";
+    }
+  }
+
+  // Definir rangos de asistencia
+  const rangoAsistio1 = { llegadaPronto: "06:00", inicio: "07:10", fin: "12:00" }; // Turno mañana
+  const rangoAsistio2 = { llegadaPronto: "15:00", inicio: "15:30", fin: "17:20" }; // Turno tarde
+
+  // Convertir las horas de los rangos a minutos
+  var llegadaPronto1 = convertirHoraAMinutos(rangoAsistio1.llegadaPronto);
+  var inicio1 = convertirHoraAMinutos(rangoAsistio1.inicio);
+  var fin1 = convertirHoraAMinutos(rangoAsistio1.fin);
+
+  var llegadaPronto2 = convertirHoraAMinutos(rangoAsistio2.llegadaPronto);
+  var inicio2 = convertirHoraAMinutos(rangoAsistio2.inicio);
+  var fin2 = convertirHoraAMinutos(rangoAsistio2.fin);
+
+  // Convertir la hora actual a minutos
+  var horaActualMinutos = convertirHoraAMinutos(horaActual);
+
+  var tipoAsistencia;
+
+  // Verificar si la hora actual está dentro de los rangos de asistencia
+  if (
+    (horaActualMinutos >= llegadaPronto1 && horaActualMinutos < inicio1) ||
+    (horaActualMinutos >= llegadaPronto2 && horaActualMinutos < inicio2)
+  ) {
+    tipoAsistencia = "ASISTIÓ";
+  } else if (
+    (horaActualMinutos >= inicio1 && horaActualMinutos <= fin1) ||
+    (horaActualMinutos >= inicio2 && horaActualMinutos <= fin2)
+  ) {
+    tipoAsistencia = "TARDANZA";
+  } else {
+    return "Hora inválida para el registro."; // Si no está en ningún rango
+  }
+
+  // Generar AsistenciaID
+  var asistenciaID = Math.random().toString(36).substr(2, 8).toUpperCase();
+
+  // Registrar la asistencia
+  var nuevaFila = [
+    asistenciaID, // AsistenciaID (generado aleatoriamente)
+    alumno.alumnoID, // AlumnoID
+    alumno.nombre_completo, // AlumnoNombre
+    alumno.grupoID, // GrupoID
+    fechaStr, // AsistenciaFecha
+    horaStr, // AsistenciaHora
+    tipoAsistencia, // AsistenciaPresente
+    "", // AsistenciaComentario (vacío)
+    qr_persona // CódigoQR
+  ];
+  hojaAsistencia.appendRow(nuevaFila);
+  return "Registro exitoso: " + tipoAsistencia;
+}
