@@ -49,6 +49,7 @@ function registrarAsistencias(asistencias) {
   var registrosExitosos = 0;
   var registrosDuplicados = 0;
   var registrosFueraDeRango = 0;
+  var registrosFueraDeHora = 0;
 
   // Obtener todos los registros de asistencia
   var datosAsistencia = hojaAsistencia.getDataRange().getValues();
@@ -60,7 +61,7 @@ function registrarAsistencias(asistencias) {
 
   // Definir los rangos de asistencia en horas
   const rangoAsistio1 = { llegadaPronto: "06:00", inicio: "07:10", fin: "12:00" }; // turno mañana
-  const rangoAsistio2 = { llegadaPronto: "18:00", inicio: "18:10", fin: "17:20" }; // turno tarde
+  const rangoAsistio2 = { llegadaPronto: "15:00", inicio: "15:10", fin: "18:20" }; // turno tarde
 
   for (var i = 0; i < asistencias.length; i++) {
     var codigoQR = asistencias[i].codigoQR;
@@ -123,7 +124,6 @@ function registrarAsistencias(asistencias) {
     if (
       (horaActualMinutos >= llegadaPronto1 && horaActualMinutos < inicio1) ||
       (horaActualMinutos >= llegadaPronto2 && horaActualMinutos < inicio2)
-
     ) {
       tipoAsistencia = "ASISTIÓ";
     } else if (
@@ -132,7 +132,8 @@ function registrarAsistencias(asistencias) {
     ) {
       tipoAsistencia = "TARDANZA";
     } else {
-      tipoAsistencia = "INASISTENCIA"; // Si no está en ningún rango
+      registrosFueraDeHora++;
+      continue; // No registrar si está fuera de rango
     }
 
     // Generar AsistenciaID
@@ -155,5 +156,5 @@ function registrarAsistencias(asistencias) {
     registrosExitosos++;
   }
 
-  return `Registros exitosos: ${registrosExitosos}, Registros duplicados: ${registrosDuplicados}, Registros fuera de rango: ${registrosFueraDeRango}`;
+  return `Registros exitosos: ${registrosExitosos}, Registros duplicados: ${registrosDuplicados}, Registros fuera de rango: ${registrosFueraDeRango}, Registros fuera de hora: ${registrosFueraDeHora}`;
 }
