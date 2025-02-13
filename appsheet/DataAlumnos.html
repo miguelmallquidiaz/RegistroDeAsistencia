@@ -1,0 +1,23 @@
+<!-- AlumnoID -->
+
+"A" & [_RowNumber] + 1
+
+<!-- AlumnoFoto -->
+
+"https://icon-library.com/images/no-profile-pic-icon/no-profile-pic-icon-11.jpg"
+
+<!-- AlumnosConInasistencia -->
+
+COUNT(
+  SELECT(
+    Asistencia[AlumnoID],
+    AND(
+      [_THISROW].[AlumnoID] = [AlumnoID],
+      [AsistenciaPresente] = "INASISTENCIA"
+    )
+  )
+)
+
+<!-- AlumnoCodigoQR -->
+
+CONCATENATE("https://quickchart.io/qr?text=",[CodigoQR],"&size=350")

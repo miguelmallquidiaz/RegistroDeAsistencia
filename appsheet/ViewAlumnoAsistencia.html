@@ -1,0 +1,12 @@
+<!-- SliceAsistencia -->
+
+Tabla: Alumnos
+
+COUNT(SELECT
+(      Asistencia[AlumnoID], 
+       AND
+       (
+            DATE([AsistenciaFecha]) = TODAY()
+            ,[_THISROW].[AlumnoNombre] = [AlumnoNombre]
+       )
+)) = 0

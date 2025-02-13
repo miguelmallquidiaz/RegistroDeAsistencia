@@ -1,0 +1,12 @@
+En Pasar Lista 
+
+App: go to another view within this app 
+<!-- ActionFiltrarAlumnos -->
+
+LINKTOFILTEREDVIEW(
+    "AlumnosAsistencia", 
+    AND(
+        [_THISROW].[GrupoID] = [GrupoID],  
+        [Estado] = "ACTIVO"
+    )
+)

@@ -1,0 +1,13 @@
+<!-- GrupoID -->
+
+"G" & [_ROWNUMBER] + 1
+
+<!-- Periodo -->
+
+YEAR(NOW())
+
+<!-- GrupoNombre -->
+
+CONCATENATE(
+  [Ciclo], " - ", [Grado], " - ", [Seccion]
+)

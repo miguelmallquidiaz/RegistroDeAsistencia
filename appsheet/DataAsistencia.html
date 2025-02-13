@@ -1,0 +1,21 @@
+<!-- AsistenciaID -->
+
+UNIQUEID()
+
+<!-- AlumnoNombre -->
+
+[AlumnoID].[AlumnoNombre]
+
+<!-- AsistenciaFecha y AsistenciaHora -->
+
+NOW()
+
+<!-- AlumnoConMásFaltas -->
+
+COUNT(
+  SELECT(Asistencia[AlumnoID], 
+    AND(
+      [AlumnoID] = [_THISROW].[AlumnoID],
+      [AsistenciaPresente] = "INASISTENCIA"
+    ))
+)
