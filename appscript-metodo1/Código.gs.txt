@@ -14,7 +14,7 @@ function obtenerDatosAlumno(codigoQR) {
   var hojaAlumnos = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Alumnos");
   var datosAlumnos = hojaAlumnos.getDataRange().getValues();
   for (var i = 1; i < datosAlumnos.length; i++) {
-    if (datosAlumnos[i][4] === codigoQR && datosAlumnos[i][5] === "ACTIVO") { // CódigoQR en columna 5 (índice 4), Estado en columna 6 (índice 5)
+    if (datosAlumnos[i][4] === codigoQR && datosAlumnos[i][5] === "ACTIVO") {
       return {
         AlumnoID: datosAlumnos[i][0],
         AlumnoNombre: datosAlumnos[i][1],
@@ -23,17 +23,6 @@ function obtenerDatosAlumno(codigoQR) {
     }
   }
   return null;
-}
-
-function calcularDistancia(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Radio de la Tierra en km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // Distancia en km
 }
 
 function registrarAsistencias(asistencias) {
@@ -48,79 +37,43 @@ function registrarAsistencias(asistencias) {
 
   var registrosExitosos = 0;
   var registrosDuplicados = 0;
-  var registrosFueraDeRango = 0;
   var registrosFueraDeHora = 0;
 
-  // Obtener todos los registros de asistencia
   var datosAsistencia = hojaAsistencia.getDataRange().getValues();
 
-  // Coordenadas de la escuela
-  const escuelaLat = -12.16890902346348;
-  const escuelaLon = -76.99744372733122;
-  const radioPermitido = 0.485; // Radio permitido en kilometros
+  const rangoAsistio1 = { llegadaPronto: "06:00", inicio: "07:10", fin: "12:00" };
+  const rangoAsistio2 = { llegadaPronto: "22:00", inicio: "22:10", fin: "23:20" };
 
-  // Definir los rangos de asistencia en horas
-  const rangoAsistio1 = { llegadaPronto: "06:00", inicio: "07:10", fin: "12:00" }; // turno mañana
-  const rangoAsistio2 = { llegadaPronto: "15:00", inicio: "15:10", fin: "18:20" }; // turno tarde
+  function convertirHoraAMinutos(hora) {
+    var partes = hora.split(":");
+    return parseInt(partes[0]) * 60 + parseInt(partes[1]);
+  }
+
+  var llegadaPronto1 = convertirHoraAMinutos(rangoAsistio1.llegadaPronto);
+  var inicio1 = convertirHoraAMinutos(rangoAsistio1.inicio);
+  var fin1 = convertirHoraAMinutos(rangoAsistio1.fin);
+  var llegadaPronto2 = convertirHoraAMinutos(rangoAsistio2.llegadaPronto);
+  var inicio2 = convertirHoraAMinutos(rangoAsistio2.inicio);
+  var fin2 = convertirHoraAMinutos(rangoAsistio2.fin);
+  var horaActualMinutos = convertirHoraAMinutos(Utilities.formatDate(fecha, "America/Lima", "HH:mm"));
 
   for (var i = 0; i < asistencias.length; i++) {
     var codigoQR = asistencias[i].codigoQR;
-    var ubicacion = asistencias[i].ubicacion.split(", ");
-    var latitud = parseFloat(ubicacion[0]);
-    var longitud = parseFloat(ubicacion[1]);
+    var ubicacion = asistencias[i].ubicacion;
 
-    // Verificar si la ubicación está dentro del radio permitido
-    var distancia = calcularDistancia(latitud, longitud, escuelaLat, escuelaLon);
-    if (distancia > radioPermitido) {
-      registrosFueraDeRango++;
-      continue; // Saltar este registro si está fuera del rango
-    }
-
-    // Obtener datos del alumno
     var alumno = obtenerDatosAlumno(codigoQR);
-    if (!alumno) {
-      continue; // Saltar si no se encuentra el alumno
-    }
+    if (!alumno) continue;
 
-    // Verificar si el alumno ya fue registrado hoy
     var existeRegistro = datosAsistencia.some(function (fila) {
-      var alumnoIDRegistro = fila[1]; // AlumnoID en columna 2 (índice 1)
-      var fechaRegistro = fila[4]; // Fecha en columna 5 (índice 4)
-      var fechaRegistroStr = Utilities.formatDate(new Date(fechaRegistro), "America/Lima", "dd/MM/yyyy");
-
-      // Comparar AlumnoID y Fecha
-      return alumnoIDRegistro === alumno.AlumnoID && fechaRegistroStr === fechaStr;
+      return fila[1] === alumno.AlumnoID && Utilities.formatDate(new Date(fila[4]), "America/Lima", "dd/MM/yyyy") === fechaStr;
     });
 
     if (existeRegistro) {
       registrosDuplicados++;
-      continue; // Saltar este registro si ya existe
+      continue;
     }
-
-    // Convertir la hora actual a formato HH:mm
-    var horaActual = Utilities.formatDate(fecha, "America/Lima", "HH:mm");
-
-    // Función para convertir una hora en formato HH:mm a minutos desde la medianoche
-    function convertirHoraAMinutos(hora) {
-      var partes = hora.split(":");
-      return parseInt(partes[0]) * 60 + parseInt(partes[1]);
-    }
-
-    // Convertir las horas de los rangos a minutos
-    var llegadaPronto1 = convertirHoraAMinutos(rangoAsistio1.llegadaPronto);
-    var inicio1 = convertirHoraAMinutos(rangoAsistio1.inicio);
-    var fin1 = convertirHoraAMinutos(rangoAsistio1.fin);
-
-    var llegadaPronto2 = convertirHoraAMinutos(rangoAsistio2.llegadaPronto);
-    var inicio2 = convertirHoraAMinutos(rangoAsistio2.inicio);
-    var fin2 = convertirHoraAMinutos(rangoAsistio2.fin);
-
-    // Convertir la hora actual a minutos
-    var horaActualMinutos = convertirHoraAMinutos(horaActual);
 
     var tipoAsistencia;
-
-    // Verificar si la hora actual está dentro de los rangos de asistencia
     if (
       (horaActualMinutos >= llegadaPronto1 && horaActualMinutos < inicio1) ||
       (horaActualMinutos >= llegadaPronto2 && horaActualMinutos < inicio2)
@@ -133,13 +86,10 @@ function registrarAsistencias(asistencias) {
       tipoAsistencia = "TARDANZA";
     } else {
       registrosFueraDeHora++;
-      continue; // No registrar si está fuera de rango
+      continue;
     }
 
-    // Generar AsistenciaID
     var asistenciaID = Math.random().toString(36).substr(2, 8).toUpperCase();
-
-    // Registrar la asistencia
     var nuevaFila = [
       asistenciaID,
       alumno.AlumnoID,
@@ -148,13 +98,13 @@ function registrarAsistencias(asistencias) {
       fechaStr,
       horaStr,
       tipoAsistencia,
-      "", // Comentario (vacío por defecto)
+      "",
       codigoQR,
-      ubicacion.join(", ")
+      ubicacion
     ];
     hojaAsistencia.appendRow(nuevaFila);
     registrosExitosos++;
   }
 
-  return `Registros exitosos: ${registrosExitosos}, Registros duplicados: ${registrosDuplicados}, Registros fuera de rango: ${registrosFueraDeRango}, Registros fuera de hora: ${registrosFueraDeHora}`;
+  return `Registros exitosos: ${registrosExitosos}, Registros duplicados: ${registrosDuplicados}, Registros fuera de hora: ${registrosFueraDeHora}`;
 }
